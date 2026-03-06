@@ -1,65 +1,142 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import type { Character, CharactersResponse, CharacterFilters } from './services/types';
+import { getCharacters } from './services/api';
+import CharacterCard from './components/CharacterCard';
+import CharacterModal from './components/CharacterModal';
+import FiltersPanel from './components/FiltersPanel';
+import Pagination from './components/Pagination';
+import ErrorState from './components/ErrorState';
+import { SkeletonGrid } from './components/Skeletons';
 
-export default function Home() {
+type UIState = 'loading' | 'success' | 'error';
+
+export default function HomePage() {
+  const [uiState, setUiState] = useState<UIState>('loading');
+  const [data, setData] = useState<CharactersResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [filters, setFilters] = useState<CharacterFilters>({ page: 1 });
+  const [selected, setSelected] = useState<Character | null>(null);
+
+  const fetchCharacters = useCallback(async (currentFilters: CharacterFilters) => {
+    setUiState('loading');
+    setErrorMsg('');
+    try {
+      const result = await getCharacters(currentFilters);
+      setData(result);
+      setUiState('success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      setErrorMsg(msg);
+      setUiState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCharacters(filters);
+  }, [filters, fetchCharacters]);
+
+  const handleFilterChange = (newFilters: CharacterFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handlePageChange = (page: number) => {
+    setFilters(prev => ({ ...prev, page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-[#0d1117]">
+      
+      <header className="relative overflow-hidden border-b border-white/5">
+        {/* Animated portal bg */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-green-500/5 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-cyan-500/5 blur-2xl animate-pulse" />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 py-10 flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-mono mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            SOA · Rick and Morty API
+          </div>
+          <h1 className="text-5xl sm:text-6xl font-black text-white tracking-tight">
+            <span className="text-green-400">Rick</span> & <span className="text-cyan-400">Morty</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3 text-gray-400 text-lg max-w-lg">
+            Explora el multiverso. {data?.info.count ?? '...'} personajes conocidos del Consejo de Ricks.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      
+      <div className="max-w-7xl mx-auto px-4 py-5 border-b border-white/5">
+        <FiltersPanel filters={filters} onChange={handleFilterChange} />
+      </div>
+
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+
+        
+        {uiState === 'loading' && <SkeletonGrid count={20} />}
+
+        
+        {uiState === 'error' && (
+          <ErrorState
+            message={errorMsg}
+            onRetry={() => fetchCharacters(filters)}
+          />
+        )}
+
+        
+        {uiState === 'success' && data && (
+          <>
+            
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-sm text-gray-500">
+                Mostrando{' '}
+                <span className="text-white font-semibold">{data.results.length}</span>
+                {' '}de{' '}
+                <span className="text-white font-semibold">{data.info.count}</span>
+                {' '}personajes — Página{' '}
+                <span className="text-green-400 font-semibold">{filters.page}</span>
+                {' '}de{' '}
+                <span className="text-white font-semibold">{data.info.pages}</span>
+              </p>
+            </div>
+
+            
+            {data.results.length === 0 ? (
+              <ErrorState message="No se encontraron personajes con esos filtros." onRetry={() => handleFilterChange({ page: 1 })} />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {data.results.map(character => (
+                  <CharacterCard
+                    key={character.id}
+                    character={character}
+                    onClick={setSelected}
+                  />
+                ))}
+              </div>
+            )}
+
+            
+            <Pagination
+              currentPage={filters.page ?? 1}
+              totalPages={data.info.pages}
+              onPageChange={handlePageChange}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          </>
+        )}
+      </div>
+
+      
+      <CharacterModal character={selected} onClose={() => setSelected(null)} />
+
+      
+      <footer className="border-t border-white/5 py-6 text-center text-xs text-gray-600 font-mono">
+        SOA Project · Universidad Politécnica de Chiapas · Frontend → Backend (port 4000) → Rick &amp; Morty API
+      </footer>
+    </main>
   );
 }
